@@ -1,0 +1,94 @@
+from fastapi import APIRouter, HTTPException, status, Depends
+from datetime import datetime
+
+from models.house import (
+    HouseRegister,
+    HouseResponse,
+    HouseStatus,
+    HouseConfigUpdate
+)
+from models.common import MessageResponse
+from core.dependencies import verify_token
+
+router = APIRouter(prefix="/houses", tags=["Registration"])
+
+@router.post("/register", response_model=HouseResponse, status_code=status.HTTP_201_CREATED)
+async def register_house(house: HouseRegister, token: str = Depends(verify_token)):
+    """
+    Register a new house in the system
+    
+    Args:
+        house: House information to register
+        
+    Returns:
+        Registered house information
+    """
+    # TODO: Implement house registration logic
+    return HouseResponse(
+        house_id="house_123",
+        name=house.name,
+        address=house.address,
+        owner_id=house.owner_id,
+        description=house.description,
+        created_at=datetime.now(),
+        updated_at=datetime.now()
+    )
+
+@router.get("/{house_id}/status", response_model=HouseStatus)
+async def get_house_status(house_id: str, token: str = Depends(verify_token)):
+    """
+    Get the status of a specific house
+    
+    Args:
+        house_id: ID of the house
+        
+    Returns:
+        House status information
+    """
+    # TODO: Implement get house status logic
+    return HouseStatus(
+        house_id=house_id,
+        name="My Smart Home",
+        status="active",
+        total_devices=10,
+        active_devices=8
+    )
+
+@router.put("/{house_id}/config", response_model=HouseResponse)
+async def update_house_config(
+    house_id: str,
+    config: HouseConfigUpdate,
+    token: str = Depends(verify_token)
+):
+    """
+    Update house configuration
+    
+    Args:
+        house_id: ID of the house to update
+        config: Updated configuration
+        
+    Returns:
+        Updated house information
+    """
+    # TODO: Implement house config update logic
+    raise HTTPException(
+        status_code=status.HTTP_501_NOT_IMPLEMENTED,
+        detail="Not implemented"
+    )
+
+@router.delete("/{house_id}", response_model=MessageResponse)
+async def remove_house(house_id: str, token: str = Depends(verify_token)):
+    """
+    Remove a house from the system
+    
+    Args:
+        house_id: ID of the house to remove
+        
+    Returns:
+        Success message
+    """
+    # TODO: Implement house removal logic
+    return MessageResponse(
+        message=f"House {house_id} removed successfully",
+        success=True
+    )
