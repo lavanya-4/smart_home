@@ -110,7 +110,7 @@ function AppShell({ children, currentPage, navigate }) {
 // --- AuthPage Component ---
 function AuthPage({ onLogin }) {
  return (
-   <div className="w-full h-full flex items-center justify-center">
+   <div className="w-full h-screen flex items-center justify-center bg-slate-950">
      <LoginCard onLogin={onLogin} />
    </div>
  );
@@ -225,7 +225,7 @@ function RolePicker({ onSelectRole }) {
 
 
  return (
-   <div className="w-full h-full flex items-center justify-center">
+   <div className="w-full h-screen flex items-center justify-center bg-slate-950">
      <div className="w-full max-w-2xl bg-slate-800 rounded-2xl shadow-2xl p-8">
        <h2 className="text-3xl font-bold text-center text-white mb-8">
          Choose Your Role
@@ -833,7 +833,7 @@ export default function App() {
 
 
  return (
-   <div className="flex w-full h-screen bg-slate-900 text-gray-200 font-sans">
+   <div className="flex w-full h-screen bg-slate-950 text-gray-200 font-sans overflow-hidden">
      {renderContent()}
    </div>
  );
