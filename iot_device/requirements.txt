@@ -1,0 +1,14 @@
+# IoT Device Requirements
+# Install with: pip install -r requirements.txt
+
+# AWS IoT SDK
+awsiotsdk>=1.11.1
+
+# OpenCV for camera
+opencv-python>=4.8.0
+
+# PyAudio for microphone
+pyaudio>=0.2.13
+
+# NumPy (comes with OpenCV)
+numpy>=1.24.0

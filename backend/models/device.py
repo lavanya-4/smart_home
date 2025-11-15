@@ -32,6 +32,9 @@ class DeviceResponse(BaseModel):
     location: str
     status: str
     description: Optional[str] = None
+    thing_name: Optional[str] = None
+    certificate_arn: Optional[str] = None
+    certificates: Optional[str] = None  # JSON string
     created_at: datetime
     updated_at: datetime
 

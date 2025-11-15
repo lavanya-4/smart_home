@@ -15,6 +15,9 @@ class HouseResponse(BaseModel):
     address: str
     owner_id: str
     description: Optional[str] = None
+    status: Optional[str] = "active"
+    total_devices: Optional[int] = 0
+    active_devices: Optional[int] = 0
     created_at: datetime
     updated_at: datetime
 

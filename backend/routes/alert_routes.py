@@ -10,7 +10,7 @@ from models.alert import (
     AlertSeverity
 )
 from models.common import MessageResponse
-from core.dependencies import verify_token
+from core.dependencies import optional_verify_token
 from core.database import get_table, Tables
 from botocore.exceptions import ClientError
 
@@ -22,7 +22,7 @@ async def get_alert_history(
     device_id: Optional[str] = None,
     severity: Optional[AlertSeverity] = None,
     limit: int = 100,
-    token: str = Depends(verify_token)
+    token: Optional[str] = Depends(optional_verify_token)
 ):
     """
     Get alert history with optional filters
@@ -98,7 +98,7 @@ async def get_alert_history(
 async def update_alert_config(
     alert_id: str,
     config: AlertConfigUpdate,
-    token: str = Depends(verify_token)
+    token: Optional[str] = Depends(optional_verify_token)
 ):
     """
     Update alert configuration
@@ -119,7 +119,7 @@ async def update_alert_config(
 @router.get("/status", response_model=AlertStatus)
 async def get_alert_status(
     house_id: Optional[str] = None,
-    token: str = Depends(verify_token)
+    token: Optional[str] = Depends(optional_verify_token)
 ):
     """
     Get alert status summary
@@ -142,7 +142,7 @@ async def get_data_stream(
     device_id: Optional[str] = None,
     metric: Optional[str] = None,
     limit: int = 100,
-    token: str = Depends(verify_token)
+    token: Optional[str] = Depends(optional_verify_token)
 ):
     """
     Get real-time data stream from devices

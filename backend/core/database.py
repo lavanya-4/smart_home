@@ -16,14 +16,14 @@ def get_dynamodb_resource():
     """
     # Only use endpoint_url if it's actually set (not empty string)
     kwargs = {
-        'region_name': settings.aws_region,
+        'region_name': settings.AWS_REGION,
     }
     
-    if settings.aws_access_key_id:
-        kwargs['aws_access_key_id'] = settings.aws_access_key_id
+    if settings.AWS_ACCESS_KEY_ID:
+        kwargs['aws_access_key_id'] = settings.AWS_ACCESS_KEY_ID
     
-    if settings.aws_secret_access_key:
-        kwargs['aws_secret_access_key'] = settings.aws_secret_access_key
+    if settings.AWS_SECRET_ACCESS_KEY:
+        kwargs['aws_secret_access_key'] = settings.AWS_SECRET_ACCESS_KEY
     
     # Only add endpoint_url if it's not None and not empty string
     if settings.dynamodb_endpoint_url and settings.dynamodb_endpoint_url.strip():
@@ -39,14 +39,14 @@ def get_dynamodb_client():
         boto3.client: DynamoDB client
     """
     kwargs = {
-        'region_name': settings.aws_region,
+        'region_name': settings.AWS_REGION,
     }
     
-    if settings.aws_access_key_id:
-        kwargs['aws_access_key_id'] = settings.aws_access_key_id
+    if settings.AWS_ACCESS_KEY_ID:
+        kwargs['aws_access_key_id'] = settings.AWS_ACCESS_KEY_ID
     
-    if settings.aws_secret_access_key:
-        kwargs['aws_secret_access_key'] = settings.aws_secret_access_key
+    if settings.AWS_SECRET_ACCESS_KEY:
+        kwargs['aws_secret_access_key'] = settings.AWS_SECRET_ACCESS_KEY
     
     # Only add endpoint_url if it's not None and not empty string
     if settings.dynamodb_endpoint_url and settings.dynamodb_endpoint_url.strip():
