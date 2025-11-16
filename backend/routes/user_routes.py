@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, status, Depends
 from datetime import datetime, timedelta
 from typing import List
 from jose import jwt
+import bcrypt
 
 from models.user import (
     UserCreate,
@@ -16,7 +17,6 @@ from core.database import get_table, Tables
 from core.config import settings
 from botocore.exceptions import ClientError
 import uuid
-import bcrypt
 
 # User management router
 router = APIRouter(prefix="/users", tags=["User Management"])
@@ -109,7 +109,7 @@ async def user_authentication(credentials: UserAuth):
         
         user = items[0]
         
-        # Verify password
+        # Verify password using bcrypt
         password_bytes = credentials.password.encode('utf-8')
         stored_hash = user['password_hash'].encode('utf-8')
         
@@ -145,7 +145,9 @@ async def user_authentication(credentials: UserAuth):
         return AuthResponse(
             access_token=access_token,
             token_type="Bearer",
-            user_id=user['user_id']
+            user_id=user['user_id'],
+            role=user.get('role', 'caregiver'),
+            email=user['email']
         )
     
     except ClientError as e:

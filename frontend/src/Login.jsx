@@ -22,7 +22,6 @@ function Login({ onLogin }) {
       <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} style={{ width: '100%', padding: '0.5em', marginBottom: '1em' }} />
       <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} style={{ width: '100%', padding: '0.5em', marginBottom: '1em' }} />
       <button type="submit" style={{ width: '100%', padding: '0.75em', background: '#5e4af6', color: 'white', border: 'none', borderRadius: '8px', marginBottom: '1em' }}>Login</button>
-      <button type="button" style={{ width: '100%', padding: '0.75em', background: '#222', color: 'white', border: 'none', borderRadius: '8px' }}>Sign in with SSO</button>
       <div style={{ marginTop: '1em', fontSize: '0.9em' }}>Don't have an account?</div>
     </form>
   );
