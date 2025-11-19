@@ -7,6 +7,8 @@ export default function DeviceForm({ onAddDevice, houses, user }) {
   const [selectedHouseId, setSelectedHouseId] = useState('');
   const [description, setDescription] = useState('');
 
+
+  
   // Auto-select user's house if they only have one
   useEffect(() => {
     if (user?.house_ids && user.house_ids.length === 1) {
