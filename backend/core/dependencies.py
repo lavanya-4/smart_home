@@ -82,6 +82,44 @@ async def get_current_user(token_payload: dict = Depends(verify_token)) -> dict:
         "role": token_payload.get("role", "caregiver")
     }
 
+async def get_current_user_optional(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)) -> Optional[dict]:
+    """
+    Get current user but allow unauthenticated access (for development)
+    
+    Args:
+        credentials: Optional HTTP Bearer token credentials
+        
+    Returns:
+        Optional[dict]: Current user information or None
+    """
+    if credentials is None:
+        # Allow unauthenticated access - return a default user
+        return {
+            "user_id": "anonymous",
+            "email": "anonymous@dev.local",
+            "role": "admin"  # Give admin role for development
+        }
+    
+    try:
+        token = credentials.credentials
+        payload = jwt.decode(
+            token,
+            settings.secret_key,
+            algorithms=[settings.algorithm]
+        )
+        return {
+            "user_id": payload.get("sub"),
+            "email": payload.get("email"),
+            "role": payload.get("role", "caregiver")
+        }
+    except JWTError:
+        # If token is invalid, still allow access with anonymous user
+        return {
+            "user_id": "anonymous",
+            "email": "anonymous@dev.local",
+            "role": "admin"
+        }
+
 async def require_admin(current_user: dict = Depends(get_current_user)) -> dict:
     """
     Require admin role for the endpoint

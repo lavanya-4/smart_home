@@ -5,6 +5,10 @@ import HomePage from './pages/HomePage';
 import DevicesPage from './pages/DevicesPage';
 import RoleSelectionPage from './pages/RoleSelectionPage';
 import LoginPage from './pages/LoginPage';
+import IncidentsPage from './pages/IncidentsPage';
+import HistoryPage from './pages/HistoryPage';
+import ContactsPage from './pages/ContactsPage';
+import PoliciesPage from './pages/PoliciesPage';
 import { removeAuthToken } from './config';
 
 function UnderConstruction({ page }) {
@@ -70,10 +74,10 @@ export default function App() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/devices" element={<DevicesPage user={user} />} />
-          <Route path="/incidents" element={<UnderConstruction page="Incidents" />} />
-          <Route path="/history" element={<UnderConstruction page="History" />} />
-          <Route path="/contacts" element={<UnderConstruction page="Contacts" />} />
-          <Route path="/policies" element={<UnderConstruction page="Policies" />} />
+          <Route path="/incidents" element={<IncidentsPage />} />
+          <Route path="/history" element={<HistoryPage />} />
+          <Route path="/contacts" element={<ContactsPage />} />
+          <Route path="/policies" element={<PoliciesPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Layout>

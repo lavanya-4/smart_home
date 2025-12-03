@@ -5,6 +5,7 @@ Properly handles AWS IoT Core communication for receiving device messages
 import json
 import logging
 import asyncio
+import uuid
 from datetime import datetime
 from typing import Optional
 from pathlib import Path
@@ -63,6 +64,7 @@ class AWSIoTMQTTClient:
         self.topics = [
             "house/+/+/camera",      # house/{house_id}/{location}/camera
             "house/+/+/microphone",  # house/{house_id}/{location}/microphone
+            "house/+/+/incidents",   # house/{house_id}/{location}/incidents
             "device/+/data",         # device/{device_id}/data
         ]
         
@@ -104,13 +106,13 @@ class AWSIoTMQTTClient:
             # Decode payload
             payload_str = payload.decode('utf-8')
             
-            logger.info(f"📨 Received message on topic: {topic}")
-            logger.info(f"📦 Payload size: {len(payload_str)} bytes")
+            # logger.info(f"📨 Received message on topic: {topic}")
+            # logger.info(f"📦 Payload size: {len(payload_str)} bytes")
             
             # Parse JSON
             try:
                 message_data = json.loads(payload_str)
-                logger.info(f"✅ Parsed JSON. Keys: {list(message_data.keys())}")
+                # logger.info(f"✅ Parsed JSON. Keys: {list(message_data.keys())}")
                 
                 # Extract device_id
                 device_id = message_data.get('device_id')
@@ -153,7 +155,7 @@ class AWSIoTMQTTClient:
             message_type = message_data.get('type', 'frame')
             metadata = message_data.get('metadata', {})
             
-            logger.info(f"🔄 Processing message for device: {device_id}, type: {message_type}")
+            # logger.info(f"🔄 Processing message for device: {device_id}, type: {message_type}, has_image: {image_data is not None}")
             
             # Update device status in database
             await self.update_device_status(device_id)
@@ -171,22 +173,121 @@ class AWSIoTMQTTClient:
             # Add image data if present
             if image_data:
                 websocket_message['image'] = image_data
+                # logger.info(f"📷 Image data included, length: {len(image_data)} chars")
             
             # Add audio data if present
             if message_data.get('audio'):
                 websocket_message['audio'] = message_data['audio']
+                logger.info(f"🔊 Audio data included")
             
-            # Add any alert information
-            if message_data.get('alert'):
-                websocket_message['alert'] = message_data['alert']
+            # Handle incident data from Lambda
+            if 'incidents' in topic or message_data.get('event_type'):
+                # This is incident data from Lambda - convert to alert format
+                alert_data = await self.convert_incident_to_alert(message_data, topic)
+                
+                if alert_data:
+                    # Save alert to DynamoDB
+                    try:
+                        alerts_table = get_table(Tables.ALERTS)
+                        alerts_table.put_item(Item=alert_data)
+                        logger.info(f"💾 Saved incident as alert {alert_data.get('alert_id')} to DynamoDB")
+                    except Exception as e:
+                        logger.error(f"Failed to save incident alert to DynamoDB: {e}")
+
+                    websocket_message['alert'] = alert_data
+                    websocket_message['type'] = 'alert'
+            
+            # Add any other alert information
+            elif message_data.get('alert') or message_type == 'alert':
+                # Handle direct alert payload or nested alert
+                alert_data = message_data if message_type == 'alert' else message_data.get('alert')
+                
+                # Save alert to DynamoDB
+                try:
+                    alerts_table = get_table(Tables.ALERTS)
+                    # Ensure all required fields are present
+                    if 'alert_id' in alert_data:
+                        alerts_table.put_item(Item=alert_data)
+                        logger.info(f"💾 Saved alert {alert_data.get('alert_id')} to DynamoDB")
+                except Exception as e:
+                    logger.error(f"Failed to save alert to DynamoDB: {e}")
+
+                websocket_message['alert'] = alert_data
+                websocket_message['type'] = 'alert' # Ensure frontend knows it's an alert
             
             # Broadcast to WebSocket subscribers
-            await connection_manager.broadcast_to_device(device_id, websocket_message)
-            
-            logger.info(f"✅ Broadcasted message for device {device_id} to WebSocket subscribers")
+            if message_type == 'alert' or websocket_message.get('alert'):
+                # Alerts should be broadcast to ALL connected clients
+                await connection_manager.broadcast_all(websocket_message)
+                logger.info(f"✅ Broadcasted ALERT for device {device_id} to ALL clients")
+            else:
+                # Normal data (frames, etc.) only goes to subscribers
+                await connection_manager.broadcast_to_device(device_id, websocket_message)
+                # logger.info(f"✅ Broadcasted message for device {device_id} to WebSocket subscribers")
             
         except Exception as e:
             logger.error(f"Error processing device message for {device_id}: {e}", exc_info=True)
+    
+    async def convert_incident_to_alert(self, incident_data: dict, topic: str) -> dict:
+        """
+        Convert incident data from Lambda to alert format for storage and display
+        
+        Args:
+            incident_data: Raw incident data from Lambda
+            topic: MQTT topic (e.g., house/house-123/living-room/incidents)
+            
+        Returns:
+            Dict in alert format
+        """
+        try:
+            # Extract house_id and location from topic
+            topic_parts = topic.split('/')
+            house_id = topic_parts[1] if len(topic_parts) > 1 else 'unknown'
+            location = topic_parts[2] if len(topic_parts) > 2 else 'unknown'
+            
+            # Get event details
+            event_type = incident_data.get('event_type', 'Unknown Event')
+            confidence = incident_data.get('confidence', 0.0)
+            device_id = incident_data.get('device_id')
+            timestamp = incident_data.get('timestamp', datetime.now().isoformat())
+            
+            # Determine severity based on confidence and event type
+            severity = 'info'
+            if confidence > 0.8:
+                severity = 'critical'
+            elif confidence > 0.5:
+                severity = 'warning'
+            
+            # Create alert message
+            message = f"{event_type} detected in {location}"
+            if confidence:
+                message += f" (confidence: {confidence:.1%})"
+            
+            # Generate unique alert ID
+            alert_id = str(uuid.uuid4())
+            
+            alert_data = {
+                'alert_id': alert_id,
+                'house_id': house_id,
+                'device_id': device_id,
+                'severity': severity,
+                'message': message,
+                'timestamp': timestamp,
+                'is_read': False,
+                'metadata': {
+                    'event_type': event_type,
+                    'confidence': confidence,
+                    'location': location,
+                    'source': 'lambda_incident'
+                }
+            }
+            
+            logger.info(f"🔄 Converted incident to alert: {event_type} -> {severity} alert")
+            return alert_data
+            
+        except Exception as e:
+            logger.error(f"Error converting incident to alert: {e}")
+            return None
     
     async def update_device_status(self, device_id: str):
         """Update device status in database"""

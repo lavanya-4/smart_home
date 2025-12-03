@@ -22,6 +22,7 @@ from core.error_handlers import (
 from routes.house_routes import router as house_router
 from routes.device_routes import router as device_router
 from routes.alert_routes import router as alert_router
+from routes.incident_routes import router as incident_router
 from routes.user_routes import router as user_router, auth_router
 from routes.websocket_routes import router as websocket_router
 
@@ -120,6 +121,7 @@ def create_app() -> FastAPI:
     app.include_router(house_router, prefix=settings.api_prefix)
     app.include_router(device_router, prefix=settings.api_prefix)
     app.include_router(alert_router, prefix=settings.api_prefix)
+    app.include_router(incident_router, prefix=settings.api_prefix)
     app.include_router(user_router, prefix=settings.api_prefix)
     app.include_router(auth_router, prefix=settings.api_prefix)
     app.include_router(websocket_router)  # WebSocket routes don't need prefix

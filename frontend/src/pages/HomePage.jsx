@@ -97,6 +97,24 @@ export default function HomePage() {
           </div>
         )}
       </div>
+
+      {/* Incidents Overview Section */}
+      <div className="bg-slate-800 rounded-2xl shadow-lg p-6">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-xl font-semibold text-white">Incidents Overview</h3>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="p-4 bg-slate-700 rounded-lg">
+            <h4 className="text-lg font-semibold text-red-400">Critical Incidents</h4>
+            <p className="text-gray-300">3 ongoing critical incidents</p>
+          </div>
+          <div className="p-4 bg-slate-700 rounded-lg">
+            <h4 className="text-lg font-semibold text-yellow-400">Warnings</h4>
+            <p className="text-gray-300">5 warnings reported</p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

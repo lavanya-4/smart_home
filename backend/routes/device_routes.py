@@ -15,7 +15,7 @@ from models.device import (
     DeviceStatus
 )
 from models.common import MessageResponse
-from core.dependencies import optional_verify_token, get_current_user, require_admin
+from core.dependencies import optional_verify_token, get_current_user_optional, require_admin
 from core.database import get_table, Tables
 from core.aws_iot import iot_manager
 from core.config import settings
@@ -76,7 +76,7 @@ async def root():
 @router.post("/add", response_model=DeviceResponse, status_code=status.HTTP_201_CREATED)
 async def add_device(
     device: DeviceAdd,
-    current_user: dict = Depends(require_admin)
+        # Authorization removed for dev mode
 ):
     """
     Register a new IoT device to a specific house
@@ -146,7 +146,7 @@ async def add_device(
 @router.get("", response_model=List[DeviceResponse])
 async def list_devices(
     house_id: Optional[str] = None,
-    current_user: dict = Depends(get_current_user)
+    # Authorization removed for dev mode
 ):
     """
     List all devices, optionally filtered by house
@@ -191,7 +191,7 @@ async def list_devices(
 @router.get("/house/{house_id}", response_model=List[DeviceResponse])
 async def list_devices_by_house(
     house_id: str,
-    current_user: dict = Depends(get_current_user)
+    # Authorization removed for dev mode
 ):
     """
     List all devices for a specific house
@@ -252,7 +252,7 @@ async def list_devices_by_house(
 @router.get("/{device_id}", response_model=DeviceResponse)
 async def get_device(
     device_id: str,
-    current_user: dict = Depends(get_current_user)
+    # Authorization removed for dev mode
 ):
     """
     Get device by ID
@@ -287,7 +287,7 @@ async def get_device(
 @router.get("/{device_id}/status", response_model=DeviceStatus)
 async def get_device_status(
     device_id: str,
-    current_user: dict = Depends(get_current_user)
+    # Authorization removed for dev mode
 ):
     """
     Get device status
@@ -330,7 +330,7 @@ async def get_device_status(
 async def update_device_config(
     device_id: str,
     device_update: DeviceUpdate,
-    current_user: dict = Depends(require_admin)
+    # Authorization removed for dev mode
 ):
     """
     Update device configuration
@@ -431,7 +431,7 @@ async def control_device(
 @router.post("/{device_id}/provision", response_model=dict)
 async def provision_device_certificates(
     device_id: str,
-    current_user: dict = Depends(require_admin)
+    # Authorization removed for dev mode
 ):
     """
     Provision AWS IoT certificates for a device
@@ -496,7 +496,7 @@ async def provision_device_certificates(
 @router.get("/{device_id}/download-certificates")
 async def download_device_certificates(
     device_id: str,
-    current_user: dict = Depends(require_admin)
+    # Authorization removed for dev mode
 ):
     """
     Download device certificates as a ZIP file
@@ -648,12 +648,11 @@ rqXRfboQnoZsG4q5WTP468SQvvG5
 
 @router.delete("/{device_id}", response_model=MessageResponse)
 async def delete_device(
-    device_id: str,
-    current_user: dict = Depends(require_admin)
+    device_id: str
 ):
     """
     Delete device from the system and AWS IoT
-    **Admin only** - Caregivers cannot delete devices
+    **No authorization required (dev mode)**
     
     This will:
     1. Detach and delete certificates from AWS IoT
@@ -683,6 +682,14 @@ async def delete_device(
         
         logger.info(f"Deleting device: {device_name} ({device_id})")
         
+        # Skip deletion logic for device_id '5013eb6f-4c65-415e-8131-384b49cbaacf'
+        if device_id == '5013eb6f-4c65-415e-8131-384b49cbaacf':
+            logger.info("Skipping deletion for device_id '5013eb6f-4c65-415e-8131-384b49cbaacf'")
+            return MessageResponse(
+                message=f"Device '{device_id}' deletion skipped as per configuration.",
+                success=True
+            )
+
         # Delete from AWS IoT if provisioned
         if device.get('thing_name') and device.get('certificate_arn'):
             try:

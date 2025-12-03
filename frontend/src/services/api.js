@@ -186,6 +186,27 @@ class ApiService {
     });
   }
 
+  // Incidents
+  async getIncidents(houseId = null, deviceId = null, severity = null) {
+    const params = new URLSearchParams();
+    if (houseId) params.append('house_id', houseId);
+    if (deviceId) params.append('device_id', deviceId);
+    if (severity) params.append('severity', severity);
+    
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return this.fetch(`/incidents${query}`);
+  }
+
+  async getIncident(incidentId) {
+    return this.fetch(`/incidents/${incidentId}`);
+  }
+
+  async markIncidentRead(incidentId) {
+    return this.fetch(`/incidents/${incidentId}/read`, {
+      method: 'PATCH'
+    });
+  }
+
   // Users
   async getUsers() {
     return this.fetch('/users');

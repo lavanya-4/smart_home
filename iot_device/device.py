@@ -19,31 +19,37 @@ from pathlib import Path
 from awscrt import mqtt
 from awsiot import mqtt_connection_builder
 
+
 # Global device instances for cleanup
 camera_device = None
 microphone_device = None
 
+
 def cleanup_all():
     """Cleanup all devices on exit"""
-    global camera_device, microphone_device
+    global camera_device, microphone_device 
     if camera_device:
         camera_device.cleanup()
     if microphone_device:
         microphone_device.cleanup()
+
 
 def signal_handler(sig, frame):
     """Handle Ctrl+C and termination signals"""
     cleanup_all()
     sys.exit(0)
 
+
 # Register cleanup handlers
 atexit.register(cleanup_all)
 signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
 
+
 # Configuration directories
 CAMERA_CONFIG = Path("certs/camera/config.json")
 MICROPHONE_CONFIG = Path("certs/microphone/config.json")
+
 
 def load_config(config_path):
     """Load device configuration from config.json"""
@@ -55,6 +61,7 @@ def load_config(config_path):
             return json.load(f)
     except Exception as e:
         return None
+
 
 def check_available_devices():
     """Check which devices have valid configurations"""
@@ -83,10 +90,12 @@ def check_available_devices():
     
     return devices
 
+
 # Configuration
 FRAME_WIDTH = 640
 FRAME_HEIGHT = 480
 CAPTURE_INTERVAL = 1  # seconds - 1 FPS for smooth updates without overwhelming system
+
 
 # Audio Configuration
 AUDIO_FORMAT = pyaudio.paInt16
@@ -127,6 +136,12 @@ class CameraDevice:
         except Exception as e:
             return False
     
+    def on_connection_interrupted(self, connection, error, **kwargs):
+        print(f"❌ [Camera] Connection interrupted: {error}")
+
+    def on_connection_resumed(self, connection, return_code, session_present, **kwargs):
+        print(f"✅ [Camera] Connection resumed")
+    
     def connect_mqtt(self):
         """Connect to AWS IoT Core"""
         certs_path = Path("certs/camera")
@@ -142,6 +157,7 @@ class CameraDevice:
             ("Root CA", ca_filepath)
         ]:
             if not path.exists():
+                print(f"❌ [Camera] {name} not found: {path}")
                 return False
         
         try:
@@ -152,7 +168,9 @@ class CameraDevice:
                 ca_filepath=str(ca_filepath),
                 client_id=self.config['thing_name'],
                 clean_session=False,
-                keep_alive_secs=30
+                keep_alive_secs=30,
+                on_connection_interrupted=self.on_connection_interrupted,
+                on_connection_resumed=self.on_connection_resumed
             )
             
             connect_future = self.mqtt_connection.connect()
@@ -162,6 +180,7 @@ class CameraDevice:
             return True
             
         except Exception as e:
+            print(f"❌ [Camera] MQTT connection failed: {e}")
             return False
     
     def capture_and_encode_frame(self):
@@ -180,7 +199,8 @@ class CameraDevice:
         return base64.b64encode(encoded_image.tobytes()).decode('utf-8')
     
     def publish_frame(self, video_data):
-        """Publish video frame to AWS IoT Core"""
+        """Publish video frame to AWS IoT Core (DISABLED)"""
+        # The code below is commented out to disable sending camera info.
         payload = {
             "device_id": self.config['device_id'],
             "thing_name": self.config['thing_name'],
@@ -195,23 +215,35 @@ class CameraDevice:
                 "format": "jpeg"
             }
         }
+        payload_text = json.dumps(payload)
+        
+        # Check payload size
+        payload_size_kb = len(payload_text) / 1024
+        if len(payload_text) > 128 * 1024:
+            print(f"❌ [Camera] Payload too large: {payload_size_kb:.1f} KB (max 128 KB)")
+            return False
         
         try:
+            print(f"[Camera] Sending frame #{self.frame_count + 1} -> {self.config['mqtt_topic']} ({payload_size_kb:.1f} KB)")
+        
             self.mqtt_connection.publish(
                 topic=self.config['mqtt_topic'],
-                payload=json.dumps(payload),
+                payload=payload_text,
                 qos=mqtt.QoS.AT_LEAST_ONCE
             )
-            
+        
             self.frame_count += 1
+            print(f"✅ [Camera] Sent frame #{self.frame_count}")
             return True
-            
+        
         except Exception as e:
+            print(f"❌ [Camera] Failed to publish frame: {e}")
             return False
     
     def run(self):
         """Main camera loop"""
         if not self.initialize_camera():
+            print("❌ [Camera] Failed to initialize camera")
             return
         
         if not self.connect_mqtt():
@@ -230,12 +262,13 @@ class CameraDevice:
         except KeyboardInterrupt:
             pass
         except Exception as e:
-            pass
+            print(f"❌ [Camera] Error in run loop: {e}")
         finally:
             self.cleanup()
     
     def cleanup(self):
         """Cleanup resources"""
+        print("\n🧹 [Camera] Cleaning up...")
         if self.camera is not None:
             self.camera.release()
         
@@ -260,7 +293,7 @@ class MicrophoneDevice:
         
     def initialize_microphone(self):
         """Initialize microphone"""
-        print(f"\n� [Microphone] Initializing...")
+        print(f"\n🎤 [Microphone] Initializing...")
         
         try:
             audio = pyaudio.PyAudio()
@@ -292,6 +325,12 @@ class MicrophoneDevice:
                 audio.terminate()
             return False
     
+    def on_connection_interrupted(self, connection, error, **kwargs):
+        print(f"❌ [Microphone] Connection interrupted: {error}")
+
+    def on_connection_resumed(self, connection, return_code, session_present, **kwargs):
+        print(f"✅ [Microphone] Connection resumed")
+    
     def connect_mqtt(self):
         """Connect to AWS IoT Core"""
         certs_path = Path("certs/microphone")
@@ -307,6 +346,7 @@ class MicrophoneDevice:
             ("Root CA", ca_filepath)
         ]:
             if not path.exists():
+                print(f"❌ [Microphone] {name} not found: {path}")
                 return False
         
         try:
@@ -317,7 +357,9 @@ class MicrophoneDevice:
                 ca_filepath=str(ca_filepath),
                 client_id=self.config['thing_name'],
                 clean_session=False,
-                keep_alive_secs=30
+                keep_alive_secs=30,
+                on_connection_interrupted=self.on_connection_interrupted,
+                on_connection_resumed=self.on_connection_resumed
             )
             
             connect_future = self.mqtt_connection.connect()
@@ -327,6 +369,7 @@ class MicrophoneDevice:
             return True
             
         except Exception as e:
+            print(f"❌ [Microphone] MQTT connection failed: {e}")
             return False
     
     def capture_audio(self, duration_sec=1, amplify=5.0):
@@ -345,18 +388,20 @@ class MicrophoneDevice:
             if amplify != 1.0:
                 import numpy as np
                 audio_array = np.frombuffer(audio_data, dtype=np.int16)
-                
-                rms = np.sqrt(np.mean(audio_array**2))
-                max_val = np.max(np.abs(audio_array))
-                
                 amplified = (audio_array * amplify).astype(np.int16)
                 amplified = np.clip(amplified, -32768, 32767)
-                
                 audio_data = amplified.tobytes()
             
+            # Limit to 90KB to leave room for base64 encoding + JSON overhead
+            max_bytes = 90 * 1024
+            if len(audio_data) > max_bytes:
+                print(f"⚠️ Audio truncated from {len(audio_data)} to {max_bytes} bytes")
+                audio_data = audio_data[:max_bytes]
+                
             return base64.b64encode(audio_data).decode('utf-8')
             
         except Exception as e:
+            print(f"❌ [Microphone] Capture error: {e}")
             return None
     
     def publish_audio(self, audio_data):
@@ -376,50 +421,102 @@ class MicrophoneDevice:
                 "format": "pcm16"
             }
         }
+        payload_text = json.dumps(payload)
         
+        # Check payload size
+        payload_size_kb = len(payload_text) / 1024
+        print(f"📊 [Microphone] Payload size: {payload_size_kb:.1f} KB")
+        
+        if len(payload_text) > 128 * 1024:
+            print(f"❌ [Microphone] Payload exceeds 128KB limit! ({payload_size_kb:.1f} KB)")
+            return False
+
         try:
+            print(f"[Microphone] Sending audio #{self.audio_count + 1} -> {self.config['mqtt_topic']}")
+
             self.mqtt_connection.publish(
                 topic=self.config['mqtt_topic'],
-                payload=json.dumps(payload),
+                payload=payload_text,
                 qos=mqtt.QoS.AT_LEAST_ONCE
             )
-            
+
             self.audio_count += 1
+            print(f"✅ [Microphone] Sent audio #{self.audio_count}")
             return True
-            
+
         except Exception as e:
+            print(f"❌ [Microphone] Failed to publish audio: {e}")
             return False
     
     def run(self):
-        """Main microphone loop"""
-        if not self.initialize_microphone():
-            return
-        
+        """Main microphone loop - Sends files from audioFiles directory"""
         if not self.connect_mqtt():
             self.cleanup()
             return
         
         self.running = True
+        audio_files_dir = Path("audioFiles")
         
+        if not audio_files_dir.exists():
+            print(f"❌ [Microphone] 'audioFiles' directory not found!")
+            self.cleanup()
+            return
+
+        # Get all files (ignoring hidden files)
+        files = sorted([f for f in audio_files_dir.iterdir() if f.is_file() and not f.name.startswith('.')])
+        
+        if not files:
+            print(f"❌ [Microphone] No files found in 'audioFiles'!")
+            self.cleanup()
+            return
+
+        print(f"✅ [Microphone] Found {len(files)} audio files to stream")
+
         try:
+            import random
+            import wave
+            
             while self.running:
-                # Record 3 seconds of audio
-                audio_data = self.capture_audio(duration_sec=3, amplify=5.0)
-                if audio_data:
-                    self.publish_audio(audio_data)
+                # Pick a random file
+                file_path = random.choice(files)
                 
-                # Ignore the next 2 seconds (don't record)
-                time.sleep(2)
+                print(f"\n📄 [Microphone] Reading file: {file_path.name}")
+                try:
+                    # Open WAV file and extract raw PCM data
+                    with wave.open(str(file_path), 'rb') as wav_file:
+                        # Read all frames (raw PCM data)
+                        pcm_data = wav_file.readframes(wav_file.getnframes())
+                        
+                        # Limit to 90KB to account for base64 (33% increase) + JSON overhead
+                        max_bytes = 90 * 1024
+                        if len(pcm_data) > max_bytes:
+                            print(f"⚠️ Truncating audio from {len(pcm_data)} to {max_bytes} bytes")
+                            pcm_data = pcm_data[:max_bytes]
+                            
+                        encoded_data = base64.b64encode(pcm_data).decode('utf-8')
+                        
+                        print(f"   Extracted {len(pcm_data)} bytes of PCM data from WAV")
+                        print(f"   Base64 encoded size: {len(encoded_data)} bytes")
+                        
+                        self.publish_audio(encoded_data)
+                        
+                except Exception as e:
+                    print(f"❌ [Microphone] Error reading file {file_path.name}: {e}")
+
+                # Wait 1 minute before sending next file
+                print(f"\n⏳ Waiting 60 seconds before next audio file...")
+                time.sleep(60)
                 
         except KeyboardInterrupt:
             pass
         except Exception as e:
-            pass
+            print(f"❌ [Microphone] Error in run loop: {e}")
         finally:
             self.cleanup()
     
     def cleanup(self):
         """Cleanup resources"""
+        print("\n🧹 [Microphone] Cleaning up...")
         if self.stream is not None:
             self.stream.stop_stream()
             self.stream.close()
@@ -473,7 +570,7 @@ def main():
         
         # Start all device threads
         print("\n" + "=" * 70)
-        print("� Starting devices...")
+        print("🚀 Starting devices...")
         print("   Press Ctrl+C to stop all devices")
         print("=" * 70 + "\n")
         

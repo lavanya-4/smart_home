@@ -120,11 +120,12 @@ class ConnectionManager:
             message: Message to broadcast (will be JSON serialized)
         """
         if device_id not in self.device_subscriptions:
-            logger.debug(f"No subscribers for device: {device_id}")
+            # logger.warning(f"⚠️  No subscribers for device: {device_id} (Available devices: {list(self.device_subscriptions.keys())})")
             return
         
         # Get subscribers for this device
         subscribers = self.device_subscriptions[device_id].copy()
+        # logger.info(f"📡 Broadcasting to device {device_id}: {len(subscribers)} subscriber(s)")
         
         # Track failed connections to remove them
         failed_connections = []
@@ -132,18 +133,19 @@ class ConnectionManager:
         for websocket in subscribers:
             try:
                 await websocket.send_json(message)
+                logger.debug(f"  ✓ Sent to subscriber")
             except Exception as e:
-                logger.error(f"Error broadcasting to device {device_id}: {e}")
+                logger.error(f"  ✗ Error broadcasting to device {device_id}: {e}")
                 failed_connections.append(websocket)
         
         # Clean up failed connections
         for websocket in failed_connections:
             self.disconnect(websocket)
         
-        logger.info(
-            f"Broadcasted to device {device_id}: "
-            f"{len(subscribers) - len(failed_connections)}/{len(subscribers)} successful"
-        )
+        # logger.info(
+        #     f"✅ Broadcasted to device {device_id}: "
+        #     f"{len(subscribers) - len(failed_connections)}/{len(subscribers)} successful"
+        # )
     
     async def broadcast_all(self, message: dict):
         """
